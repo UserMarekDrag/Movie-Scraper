@@ -1,3 +1,4 @@
+import json
 from contextlib import contextmanager
 from selenium import webdriver
 from selenium.common import WebDriverException
@@ -21,6 +22,10 @@ city = "kielce"
 
 @contextmanager
 def get_chrome_driver():
+    """
+    This context manager creates a headless Chrome WebDriver instance,
+    manages its lifecycle, and cleans up after it is done.
+    """
     service = Service(CHROMEDRIVER_PATH)
     options = webdriver.ChromeOptions()
     options.add_argument('--headless') # run Chrome in headless mode
@@ -32,18 +37,22 @@ def get_chrome_driver():
         driver.quit()
 
 
-def get_movie_titles(city, showing_date):
+def get_movie_info(city, showing_date):
     """
     This function uses Selenium and BeautifulSoup to scrape the Multikino website
-    and get a list of movie titles that are currently playing in the given city
+    and get information about movies that are currently playing in the given city
     on the specified showing date.
 
     Args:
         city (str): The name of the city where the cinema is located.
-        showing_date (str): The date in format DD-MM-YYYY for which movie titles are to be retrieved.
+        showing_date (str): The date in format DD-MM-YYYY for which movie information is to be retrieved.
 
     Returns:
-        A list of movie titles that are currently playing in the specified city on the specified date.
+        A list of dictionaries, where each dictionary represents information about a single movie.
+        Each dictionary has the following keys:
+        - title (str): The title of the movie.
+        - description (str): The description of the movie.
+        - hour (str): The time when the movie is playing.
     """
     try:
         # Navigate to the page
@@ -62,19 +71,25 @@ def get_movie_titles(city, showing_date):
             # Find the film list
             film_list = soup.find('div', {'class': 'filmlist container container-small expand-small'})
 
-            # Find the film items and get the titles
+            # Find the film items and get the information
             film_items = film_list.find_all('div', {'class': 'filmlist__item'})
-            titles = [item.
-                      find('div', {'class': 'filmlist__info-txt'}).
-                      find('span', {'data-v-9364a27e': True}).
-                      text for item in film_items]
+            movie_info_list = [
+                {
+                    'title': item.find('div', {'class': 'filmlist__info-txt'}).find('span',
+                                                                                    {'data-v-9364a27e': True}).text,
+                    'description': item.find('p', {'class': 'filmlist__synopsis--twoLines'}).text,
+                    'hours': [{'hour': time.find('time', {'class': 'default'}).text.strip()} for time in
+                              item.find_all('li', {'class': 'times__detail'})]
+                }
+                for item in film_items
+            ]
 
-            return titles
+            return movie_info_list
 
     except (WebDriverException, AttributeError) as e:
         print(f"Error occurred: {str(e)}")
         return []
 
 
-titles = get_movie_titles(city, showing_date)
-print(titles)
+movie_info_list = get_movie_info(city, showing_date)
+print(json.dumps(movie_info_list, indent=4, ensure_ascii=False))
