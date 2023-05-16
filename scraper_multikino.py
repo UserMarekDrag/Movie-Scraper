@@ -15,8 +15,8 @@ CHROMEDRIVER_PATH = '/path/to/chromedriver'
 URL_FORMAT = 'https://multikino.pl/repertuar/{}/teraz-gramy?data={}'
 WAIT_TIME = 10
 
-# Format daty w postaci DD-MM-YYYY
-showing_date = datetime.today().strftime('%d-%m-%Y')
+# Date format in the form of YYYY-MM-DD
+showing_date = datetime.today().strftime('%Y-%m-%d')
 city = "kielce"
 
 
@@ -53,6 +53,7 @@ def get_movie_info(city, showing_date):
         - title (str): The title of the movie.
         - description (str): The description of the movie.
         - hour (str): The time when the movie is playing.
+        - booking_link (str): The link for booking the movie.
     """
     try:
         # Navigate to the page
@@ -77,9 +78,16 @@ def get_movie_info(city, showing_date):
                 {
                     'title': item.find('div', {'class': 'filmlist__info-txt'}).find('span',
                                                                                     {'data-v-9364a27e': True}).text,
-                    'description': item.find('p', {'class': 'filmlist__synopsis--twoLines'}).text,
-                    'hours': [{'hour': time.find('time', {'class': 'default'}).text.strip()} for time in
-                              item.find_all('li', {'class': 'times__detail'})]
+                    'description': item.find('p', {'class': 'filmlist__synopsis--twoLines'}).text
+                    if item.find('p', {'class': 'filmlist__synopsis--twoLines'}) else 'No description',
+                    'show_info': [
+                                {
+                                    'hour': time.find('time', {'class': 'default'}).text.strip(),
+                                    'booking_link': 'https://multikino.pl' + time.find('a')['href']
+                                }
+                                for time in item.find_all('li', {'class': 'times__detail'})
+                                if time.find('time', {'class': 'default'}) is not None
+                             ]
                 }
                 for item in film_items
             ]
